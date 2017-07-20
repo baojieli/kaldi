@@ -75,7 +75,12 @@ class Plda {
  public:
   Plda() { }
 
-
+  explicit Plda(const Plda &other):
+    mean_(other.mean_),
+    transform_(other.transform_),
+    psi_(other.psi_),
+    offset_(other.offset_) {
+  };
   /// Transforms an iVector into a space where the within-class variance
   /// is unit and between-class variance is diagonalized.  The only
   /// anticipated use of this function is to pre-transform iVectors
@@ -126,9 +131,19 @@ class Plda {
   /// psi_ were as a result very large.
   void SmoothWithinClassCovariance(double smoothing_factor);
 
+  /// Apply a transform to the PLDA model.  This is mostly used for
+  /// projecting the parameters of the model into a lower dimensional space,
+  /// typically for speaker diarization.
+  void ApplyTransform(const Matrix<double> &transform);
+
+  /// Interpolate the PLDA paramters with another PLDA model paramters.
+  void Sum(BaseFloat alpha, const Plda &other, BaseFloat beta = 1.0);
+
   int32 Dim() const { return mean_.Dim(); }
   void Write(std::ostream &os, bool binary) const;
   void Read(std::istream &is, bool binary);
+
+  const Vector<double>& BetweenClassCovariance() const { return psi_; }
  protected:
   void ComputeDerivedVars(); // computes offset_.
   friend class PldaEstimator;
@@ -144,7 +159,7 @@ class Plda {
   Vector<double> offset_;  // derived variable: -1.0 * transform_ * mean_
 
  private:
-  KALDI_DISALLOW_COPY_AND_ASSIGN(Plda);
+  Plda &operator = (const Plda &other);
   /// This returns a normalization factor, which is a quantity we
   /// must multiply "transformed_ivector" by so that it has the length
   /// that it "should" have.  We assume "transformed_ivector" is an
@@ -176,6 +191,13 @@ class PldaStats {
   void Sort() { std::sort(class_info_.begin(), class_info_.end()); }
   bool IsSorted() const;
   ~PldaStats();
+
+  void Read(std::istream &is, bool binary);
+  void Write(std::ostream &os, bool binary) const;
+
+  void Sum(const PldaStats &other, BaseFloat weight = 1.0, 
+           bool add_offset_scatter = true);
+  void Scale(BaseFloat scale);
  protected:
 
   friend class PldaEstimator;
@@ -223,6 +245,7 @@ struct PldaEstimationConfig {
 class PldaEstimator {
  public:
   PldaEstimator(const PldaStats &stats);
+  PldaEstimator(const Plda &plda, const PldaStats &stats);
 
   void Estimate(const PldaEstimationConfig &config,
                 Plda *output);
@@ -245,6 +268,7 @@ private:
   void EstimateOneIter();
 
   void InitParameters();
+  void InitFromPlda(const Plda &plda);
 
   void ResetPerIterStats();
 

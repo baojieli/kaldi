@@ -49,9 +49,12 @@ class ScalarClusterable: public Clusterable {
   virtual void Write(std::ostream &os, bool binary) const;
   virtual Clusterable* ReadNew(std::istream &is, bool binary) const;
 
-  std::string Info();  // For debugging.
-  BaseFloat Mean() { return (count_ != 0 ? x_/count_ : 0.0); }
-  private:
+  std::string Info() const;  // For debugging.
+  BaseFloat Mean() const { return (count_ != 0 ? x_/count_ : 0.0); }
+  BaseFloat Variance() const { return (count_ != 0 ? 
+                                 x2_ / count_ - x_ * x_ / count_ / count_ :
+                                 0.0); }
+ private:
   BaseFloat x_;
   BaseFloat x2_;
   BaseFloat count_;
@@ -138,9 +141,11 @@ class VectorClusterable: public Clusterable {
   virtual Clusterable *ReadNew(std::istream &is, bool binary) const;
   virtual ~VectorClusterable() {}
 
- private:
+ protected:
   double weight_;  // sum of weights of the source vectors.  Never negative.
   Vector<double> stats_; // Equals the weighted sum of the source vectors.
+                  
+ private:
   double sumsq_;  // Equals the sum over all sources, of weight_ * vec.vec,
                   // where vec = stats_ / weight_.  Used in computing
                   // the objective function.

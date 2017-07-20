@@ -155,7 +155,7 @@ void ComputeSimpleNnetContext(const Nnet &nnet,
 
   // This will crash if the total context (left + right) is greater
   // than window_size.
-  int32 window_size = 100;
+  int32 window_size = 150;
   // by going "<= modulus" instead of "< modulus" we do one more computation
   // than we really need; it becomes a sanity check.
   for (int32 input_start = 0; input_start <= modulus; input_start++)
@@ -282,6 +282,26 @@ void ScaleNnet(BaseFloat scale, Nnet *nnet) {
     for (int32 c = 0; c < nnet->NumComponents(); c++) {
       Component *comp = nnet->GetComponent(c);
       comp->Scale(scale);
+    }
+  }
+}
+
+void ScaleSingleComponent(BaseFloat scale, Nnet *nnet, std::string component_name) {
+  if (scale == 1.0) {
+    return;
+  //else if (scale == 0.0) {
+  //  SetZero(false, nnet);
+  } else {
+    for (int32 c = 0; c < nnet->NumComponents(); c++) {
+      Component *comp = nnet->GetComponent(c);
+      std::string this_component_type = nnet->GetComponent(c)->Type();
+      if (this_component_type == component_name) { 
+        if (comp->Properties() & kUpdatableComponent) 
+          comp->Scale(scale);
+        else
+          KALDI_ERR << "component " << component_name 
+                    << "is not an updatable component.";
+      }
     }
   }
 }

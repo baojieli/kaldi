@@ -22,6 +22,7 @@
 #define KALDI_ITF_CLUSTERABLE_ITF_H_ 1
 
 #include <string>
+#include <set>
 #include "base/kaldi-common.h"
 
 namespace kaldi {
@@ -86,9 +87,22 @@ class Clusterable {
   /// Return the objective function decrease from merging the two
   /// clusters, negated to be a positive number (or zero).
   virtual BaseFloat Distance(const Clusterable &other) const;
+
+  /// Used to specify a different distance for the purposes of Merging
+  /// than the one specified by Distance.
+  virtual BaseFloat MergeThreshold(const Clusterable &other) const {
+    return Distance(other);
+  }
+
   /// @}
 
 };
+
+class PointsClusterable: public Clusterable {
+ public:
+  virtual const std::set<int32> &points() const = 0;
+};
+
 /// @} end of "ingroup clustering_group"
 
 }  // end namespace kaldi

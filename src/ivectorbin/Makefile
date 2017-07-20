@@ -11,11 +11,21 @@ BINFILES = ivector-extractor-init ivector-extractor-acc-stats \
            ivector-normalize-length \
            ivector-transform ivector-compute-dot-products ivector-mean \
            ivector-compute-lda ivector-compute-plda \
-	   ivector-copy-plda compute-eer \
+           ivector-copy-plda compute-eer \
            ivector-subtract-global-mean ivector-plda-scoring \
            logistic-regression-train logistic-regression-eval \
            logistic-regression-copy create-split-from-vad \
-           ivector-extract-online ivector-adapt-plda
+           ivector-extract-online ivector-adapt-plda \
+           ivector-extract-dense ivector-plda-scoring-dense \
+           compute-calibration \
+           ivector-scoring-dense \
+           compute-calibration-gmm compute-calibration-gaussian \
+           ivector-cluster ivector-cluster-plda \
+           sample-scores-into-trials ivector-transform-plda \
+           ivector-extract-multiple \
+           ivector-acc-plda-stats ivector-sum-plda-stats \
+           ivector-compute-plda-from-stats ivector-sum-plda \
+           ivector-matrix-normalize-length ivector-matrix-subtract-global-mean
 
 OBJFILES =
 
@@ -25,7 +35,7 @@ TESTFILES =
 
 
 ADDLIBS = ../ivector/kaldi-ivector.a ../hmm/kaldi-hmm.a ../gmm/kaldi-gmm.a \
-          ../tree/kaldi-tree.a ../util/kaldi-util.a \
-          ../matrix/kaldi-matrix.a ../base/kaldi-base.a 
+          ../tree/kaldi-tree.a ../util/kaldi-util.a ../thread/kaldi-thread.a \
+          ../matrix/kaldi-matrix.a ../base/kaldi-base.a
 
 include ../makefiles/default_rules.mk

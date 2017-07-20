@@ -485,7 +485,6 @@ class UpdatableComponent: public Component {
   /// NnetTrainer by querying the max-changes for each component.
   /// See NnetTrainer::UpdateParamsWithMaxChange() in nnet3/nnet-training.cc.
   BaseFloat MaxChange() const { return max_change_; }
-
   virtual std::string Info() const;
 
   /// The following new virtual function returns the total dimension of

@@ -119,7 +119,7 @@ void ScalarClusterable::Read(std::istream &is, bool binary) {
   ReadBasicType(is, binary, &count_);
 }
 
-std::string ScalarClusterable::Info() {
+std::string ScalarClusterable::Info() const {
   std::stringstream str;
   if (count_ == 0) {
     str << "[empty]";
@@ -319,6 +319,7 @@ BaseFloat VectorClusterable::Objf() const {
     }
     ans = 0.0;
   }
+  
   return ans;
 }
 
