@@ -70,9 +70,9 @@ for f in $srcdir/{final.mdl,tree,cmvn_opts} $data/utt2spk $data/feats.scp $lang/
 done
 
 mkdir -p $dir
-cp $srcdir/final.mdl $dir
-cp $srcdir/tree $dir
-cp $srcdir/cmvn_opts $dir
+cp $srcdir/final.mdl $dir || true
+cp $srcdir/tree $dir || true
+cp $srcdir/cmvn_opts $dir || true
 cp $srcdir/{splice_opts,delta_opts,final.mat,final.alimdl} $dir 2>/dev/null || true
 
 utils/lang/check_phones_compatible.sh $lang/phones.txt $srcdir/phones.txt
