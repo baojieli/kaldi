@@ -18,6 +18,25 @@ data_root=/export/corpora5/LDC
 num_components=2048
 ivector_dim=128
 stage=0
+use_sad=true
+sad_stage=-1
+
+if [ "$use_sad" = true ]; then
+  if [ ! -d "sad_models" ]; then
+    source_model_dir="../../swbd/s5c/exp/segmentation_1a/tdnn_lstm_asr_sad_1a"
+    if [ ! -d "$source_model_dir" ]; then
+      echo "Attemping to use Speech Activity Detection but no models exist. Run"
+      echo "  ../../swbd/s5c/run.sh"
+      echo "  ../../swbd/s5c/local/run_asr_segmentation.sh"
+      echo "to train a DNN SAD."
+      exit 0
+    else
+      mkdir -p sad_models
+      cp $source_model_dir/{cmvn_opts,final.raw,frame_subsampling_factor,post_output.vec} sad_models
+    fi
+  fi
+  sad_suffix="_sad"
+fi
 
 # Prepare datasets
 if [ $stage -le 0 ]; then
@@ -95,8 +114,42 @@ if [ $stage -le 2 ]; then
     exp/extractor_c${num_components}_i${ivector_dim}
 fi
 
+# Speech Activity Detection Segmentation
+if [ $stage -le 3 ] && [ "$use_sad" = true ]; then
+  steps/segmentation/detect_speech_activity.sh \
+    --extra-left-context 70 --extra-right-context 0 --frames-per-chunk 150 \
+    --extra-left-context-initial 0 --extra-right-context-final 0 \
+    --nj 40 --acwt 0.3 --stage $sad_stage \
+    data/callhome1 sad_models mfcc_hires_bp exp/sad_segmentation \
+    data/callhome1${sad_suffix}
+
+  steps/segmentation/detect_speech_activity.sh \
+    --extra-left-context 70 --extra-right-context 0 --frames-per-chunk 150 \
+    --extra-left-context-initial 0 --extra-right-context-final 0 \
+    --nj 40 --acwt 0.3 --stage $sad_stage \
+    data/callhome2 sad_models mfcc_hires_bp exp/sad_segmentation \
+    data/callhome2${sad_suffix}
+fi
+
+if [ "$use_sad" = true ]; then sad_suffix=${sad_suffix}_seg; fi
+
+if [ $stage -le 4 ] && [ "$use_sad" = true ]; then
+  for name in callhome1${sad_suffix} callhome2${sad_suffix}; do
+    steps/make_mfcc.sh --mfcc-config conf/mfcc.conf --nj 40 \
+      --cmd "$train_cmd" --write-utt2num-frames true \
+      data/$name exp/make_mfcc $mfccdir
+    utils/fix_data_dir.sh data/$name
+  done
+
+  for name in callhome1${sad_suffix} callhome2${sad_suffix}; do
+    sid/compute_vad_decision.sh --nj 40 --cmd "$train_cmd" \
+      data/$name exp/make_vad $vaddir
+    utils/fix_data_dir.sh data/$name
+  done
+fi
+
 # Extract i-vectors
-if [ $stage -le 3 ]; then
+if [ $stage -le 5 ]; then
   # Reduce the amount of training data for the PLDA,
   utils/subset_data_dir.sh data/sre_segmented 128000 data/sre_segmented_128k
   # Extract iVectors for the SRE, which is our PLDA training
@@ -111,60 +164,60 @@ if [ $stage -le 3 ]; then
   diarization/extract_ivectors.sh --cmd "$train_cmd --mem 20G" \
     --nj 40 --window 1.5 --period 0.75 --apply-cmn false \
     --min-segment 0.5 exp/extractor_c${num_components}_i${ivector_dim} \
-    data/callhome1 exp/ivectors_callhome1
+    data/callhome1${sad_suffix} exp/ivectors_callhome1${sad_suffix}
 
   diarization/extract_ivectors.sh --cmd "$train_cmd --mem 20G" \
     --nj 40 --window 1.5 --period 0.75 --apply-cmn false \
     --min-segment 0.5 exp/extractor_c${num_components}_i${ivector_dim} \
-    data/callhome2 exp/ivectors_callhome2
+    data/callhome2${sad_suffix} exp/ivectors_callhome2${sad_suffix}
 fi
 
 # Train PLDA models
-if [ $stage -le 4 ]; then
+if [ $stage -le 6 ]; then
   # Train a PLDA model on SRE, using callhome1 to whiten.
   # We will later use this to score iVectors in callhome2.
-  "$train_cmd" exp/ivectors_callhome1/log/plda.log \
+  "$train_cmd" exp/ivectors_callhome1${sad_suffix}/log/plda.log \
     ivector-compute-plda ark:exp/ivectors_sre_segmented_128k/spk2utt \
       "ark:ivector-subtract-global-mean \
       scp:exp/ivectors_sre_segmented_128k/ivector.scp ark:- \
-      | transform-vec exp/ivectors_callhome1/transform.mat ark:- ark:- \
+      | transform-vec exp/ivectors_callhome1${sad_suffix}/transform.mat ark:- ark:- \
       | ivector-normalize-length ark:- ark:- |" \
-    exp/ivectors_callhome1/plda || exit 1;
+    exp/ivectors_callhome1${sad_suffix}/plda || exit 1;
 
   # Train a PLDA model on SRE, using callhome2 to whiten.
   # We will later use this to score iVectors in callhome1.
-  "$train_cmd" exp/ivectors_callhome2/log/plda.log \
+  "$train_cmd" exp/ivectors_callhome2${sad_suffix}/log/plda.log \
     ivector-compute-plda ark:exp/ivectors_sre_segmented_128k/spk2utt \
       "ark:ivector-subtract-global-mean \
       scp:exp/ivectors_sre_segmented_128k/ivector.scp ark:- \
-      | transform-vec exp/ivectors_callhome2/transform.mat ark:- ark:- \
+      | transform-vec exp/ivectors_callhome2${sad_suffix}/transform.mat ark:- ark:- \
       | ivector-normalize-length ark:- ark:- |" \
-    exp/ivectors_callhome2/plda || exit 1;
+    exp/ivectors_callhome2${sad_suffix}/plda || exit 1;
 fi
 
 # Perform PLDA scoring
-if [ $stage -le 5 ]; then
+if [ $stage -le 7 ]; then
   # Perform PLDA scoring on all pairs of segments for each recording.
   # The first directory contains the PLDA model that used callhome2
   # to perform whitening (recall that we're treating callhome2 as a
   # held-out dataset).  The second directory contains the iVectors
   # for callhome1.
   diarization/score_plda.sh --cmd "$train_cmd --mem 4G" \
-    --nj 20 exp/ivectors_callhome2 exp/ivectors_callhome1 \
-    exp/ivectors_callhome1/plda_scores
+    --nj 20 exp/ivectors_callhome2${sad_suffix} exp/ivectors_callhome1${sad_suffix} \
+    exp/ivectors_callhome1${sad_suffix}/plda_scores
 
   # Do the same thing for callhome2.
   diarization/score_plda.sh --cmd "$train_cmd --mem 4G" \
-    --nj 20 exp/ivectors_callhome1 exp/ivectors_callhome2 \
-    exp/ivectors_callhome2/plda_scores
+    --nj 20 exp/ivectors_callhome1${sad_suffix} exp/ivectors_callhome2${sad_suffix} \
+    exp/ivectors_callhome2${sad_suffix}/plda_scores
 fi
 
 # Cluster the PLDA scores using a stopping threshold.
-if [ $stage -le 6 ]; then
+if [ $stage -le 8 ]; then
   # First, we find the threshold that minimizes the DER on each partition of
   # callhome.
   mkdir -p exp/tuning
-  for dataset in callhome1 callhome2; do
+  for dataset in callhome1${sad_suffix} callhome2${sad_suffix}; do
     echo "Tuning clustering threshold for $dataset"
     best_der=100
     best_threshold=0
@@ -200,48 +253,50 @@ if [ $stage -le 6 ]; then
   # callhome2 is treated as a held-out dataset to discover a reasonable
   # stopping threshold for callhome1.
   diarization/cluster.sh --cmd "$train_cmd --mem 4G" --nj 20 \
-    --threshold $(cat exp/tuning/callhome2_best) \
-    exp/ivectors_callhome1/plda_scores exp/ivectors_callhome1/plda_scores
+    --threshold $(cat exp/tuning/callhome2${sad_suffix}_best) \
+    exp/ivectors_callhome1${sad_suffix}/plda_scores exp/ivectors_callhome1${sad_suffix}/plda_scores
 
   # Do the same thing for callhome2, treating callhome1 as a held-out dataset
   # to discover a stopping threshold.
   diarization/cluster.sh --cmd "$train_cmd --mem 4G" --nj 20 \
-    --threshold $(cat exp/tuning/callhome1_best) \
-    exp/ivectors_callhome2/plda_scores exp/ivectors_callhome2/plda_scores
+    --threshold $(cat exp/tuning/callhome1${sad_suffix}_best) \
+    exp/ivectors_callhome2${sad_suffix}/plda_scores exp/ivectors_callhome2${sad_suffix}/plda_scores
 
   mkdir -p exp/results
   # Now combine the results for callhome1 and callhome2 and evaluate it
   # together.
-  cat exp/ivectors_callhome1/plda_scores/rttm \
-    exp/ivectors_callhome2/plda_scores/rttm | md-eval.pl -1 -c 0.25 -r \
+  cat exp/ivectors_callhome1${sad_suffix}/plda_scores/rttm \
+    exp/ivectors_callhome2${sad_suffix}/plda_scores/rttm | md-eval.pl -1 -c 0.25 -r \
     data/callhome/fullref.rttm -s - 2> exp/results/threshold.log \
-    > exp/results/DER_threshold.txt
+    > exp/results/DER${sad_suffix}_threshold.txt
   der=$(grep -oP 'DIARIZATION\ ERROR\ =\ \K[0-9]+([.][0-9]+)?' \
-    exp/results/DER_threshold.txt)
-  # Using supervised calibration, DER: 10.36%
+    exp/results/DER${sad_suffix}_threshold.txt)
+  # Using supervised calibration with speech activity detection, DER: 15.29%
+  # Using supervised calibration with oracle segmentation, DER: 10.36%
   echo "Using supervised calibration, DER: $der%"
 fi
 
 # Cluster the PLDA scores using the oracle number of speakers
-if [ $stage -le 7 ]; then
+if [ $stage -le 9 ]; then
   # In this section, we show how to do the clustering if the number of speakers
   # (and therefore, the number of clusters) per recording is known in advance.
   diarization/cluster.sh --cmd "$train_cmd --mem 4G" \
     --reco2num-spk data/callhome1/reco2num_spk \
-    exp/ivectors_callhome1/plda_scores exp/ivectors_callhome1/plda_scores_num_spk
+    exp/ivectors_callhome1${sad_suffix}/plda_scores exp/ivectors_callhome1${sad_suffix}/plda_scores_num_spk
 
   diarization/cluster.sh --cmd "$train_cmd --mem 4G" \
     --reco2num-spk data/callhome2/reco2num_spk \
-    exp/ivectors_callhome2/plda_scores exp/ivectors_callhome2/plda_scores_num_spk
+    exp/ivectors_callhome2${sad_suffix}/plda_scores exp/ivectors_callhome2${sad_suffix}/plda_scores_num_spk
 
   mkdir -p exp/results
   # Now combine the results for callhome1 and callhome2 and evaluate it together.
-  cat exp/ivectors_callhome1/plda_scores_num_spk/rttm \
-  exp/ivectors_callhome2/plda_scores_num_spk/rttm \
+  cat exp/ivectors_callhome1${sad_suffix}/plda_scores_num_spk/rttm \
+  exp/ivectors_callhome2${sad_suffix}/plda_scores_num_spk/rttm \
     | md-eval.pl -1 -c 0.25 -r data/callhome/fullref.rttm -s - 2> exp/results/num_spk.log \
-    > exp/results/DER_num_spk.txt
+    > exp/results/DER${sad_suffix}_num_spk.txt
   der=$(grep -oP 'DIARIZATION\ ERROR\ =\ \K[0-9]+([.][0-9]+)?' \
-    exp/results/DER_num_spk.txt)
-  # Using the oracle number of speakers, DER: 8.69%
+    exp/results/DER${sad_suffix}_num_spk.txt)
+  # Using the oracle number of speakers with speech activity detection, DER: 12.86%
+  # Using the oracle number of speakers with oracle segmentation, DER: 8.69%
   echo "Using the oracle number of speakers, DER: $der%"
 fi
