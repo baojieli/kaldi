@@ -131,7 +131,7 @@ if [ $stage -le 5 ]; then
     nf=$(cat data/$name/wav.scp | wc -l)
     diarization/score_plda.sh --cmd "$train_cmd --mem 4G" \
       --nj $(($nf<40?$nf:40)) exp/ivectors_$name \
-      exp/ivectors_$name exp/ivectors_$name
+      exp/ivectors_$name exp/ivectors_$name/plda_scores
   done
 fi
 
