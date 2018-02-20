@@ -146,12 +146,18 @@ if [ $stage -le 6 ]; then
 
     mkdir -p exp/results/$output_name
     cp exp/ivectors_$name/plda_scores/rttm exp/results/$output_name/${name}.rttm
+  done
+fi
+
+# Compute DER%
+if [ $stage -le 7 ]; then
+  for name in $test_sets; do
     if [ -f data/$name/ref.rttm ]; then
-      md-eval.pl -r data/$name/ref.rttm -s exp/results/$output_name/${name}.rttm \
-        2> exp/results/$output_name/${name}.log \
-        > exp/results/$output_name/DER.txt
+      md-eval.pl -r data/$name/ref.rttm -s exp/results/$output_name/${name}${sad_suffix}.rttm \
+        2> exp/results/$output_name/${name}${sad_suffix}.log \
+        > exp/results/$output_name/DER_${name}${sad_suffix}.txt
       der=$(grep -oP 'DIARIZATION\ ERROR\ =\ \K[0-9]+([.][0-9]+)?' \
-        exp/results/$output_name/DER.txt)
+        exp/results/$output_name/DER_${name}${sad_suffix}.txt)
       echo "Using supervised calibration on $name, DER: $der%"
     fi
   done
