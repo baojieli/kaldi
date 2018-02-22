@@ -11,6 +11,7 @@ cmd="run.pl"
 stage=0
 target_energy=0.1
 nj=10
+xvector=false
 cleanup=true
 # End configuration section.
 
@@ -30,6 +31,7 @@ if [ $# != 3 ]; then
   echo "  --stage <stage|0>                                # To control partial reruns"
   echo "  --target-energy <target-energy|0.1>              # Target energy remaining in iVectors after applying"
   echo "                                                   # a conversation dependent PCA."
+  echo "  --xvector <bool|false>                           # Enable if scoring xvectors instead of ivectors"
   echo "  --cleanup <bool|false>                           # If true, remove temporary files"
   exit 1;
 fi
@@ -38,12 +40,18 @@ pldadir=$1
 ivecdir=$2
 dir=$3
 
+if $xvector ; then
+  representation=xvector.scp
+else
+  representation=ivector.scp
+fi
+
 mkdir -p $dir/tmp
 
-for f in $ivecdir/ivector.scp $ivecdir/spk2utt $ivecdir/utt2spk $ivecdir/segments $pldadir/plda $pldadir/mean.vec $pldadir/transform.mat; do
+for f in $ivecdir/$representation $ivecdir/spk2utt $ivecdir/utt2spk $ivecdir/segments $pldadir/plda $pldadir/mean.vec $pldadir/transform.mat; do
   [ ! -f $f ] && echo "No such file $f" && exit 1;
 done
-cp $ivecdir/ivector.scp $dir/tmp/feats.scp
+cp $ivecdir/$representation $dir/tmp/feats.scp
 cp $ivecdir/spk2utt $dir/tmp/
 cp $ivecdir/utt2spk $dir/tmp/
 cp $ivecdir/segments $dir/tmp/
