@@ -11,6 +11,9 @@ vaddir=`pwd`/mfcc
 stage=0
 sad_stage=0
 
+# Location of https://github.com/nryant/dscore
+dscore_path=$KALDI_ROOT/../dscore
+
 # If both an ivector and xvector extractor are supplied, PLDA scores for both are fused
 sad_dir=models/sad/stock
 ivector_dir=
@@ -286,6 +289,36 @@ if [ $stage -le 8 ]; then
       der=$(grep -oP 'DIARIZATION\ ERROR\ =\ \K[0-9]+([.][0-9]+)?' \
         exp/results/$output_name/DER_${name}.txt)
       echo "Using supervised calibration on $name, DER: $der%"
+    fi
+
+    if [ ! -z "$dscore_path" ]; then
+      export PATH=$dscore_path:$PATH
+
+      # dscore complains about segments of length 0
+      awk '{if ($5 > 0) {print $0}}' data/$name/ref.rttm \
+        > exp/results/$output_name/ref_${name}.rttm
+
+      # we are scoring everything so we can generate our own uem file
+      if [ ! -f data/$name/ref.uem ]; then
+        "$train_cmd" data/$name/log/wav_to_duration_for_uem.log \
+          wav-to-duration scp:data/$name/wav.scp ark,t:- \
+          \| sed -e 's/ $//g;s/ / 1 0.0 /g' \> data/$name/ref.uem
+      fi
+
+      if [ -f data/$name/ref.uem ]; then
+        score.py -u data/$name/ref.uem -r exp/results/$output_name/ref_${name}.rttm \
+          -s exp/results/$output_name/${name}.rttm \
+          2> exp/results/$output_name/${name}_dscore.log \
+          > exp/results/$output_name/dscore_${name}.txt
+      else
+        score.py -r exp/results/$output_name/ref_${name}.rttm \
+          -s exp/results/$output_name/${name}.rttm \
+          2> exp/results/$output_name/${name}_dscore.log \
+          > exp/results/$output_name/dscore_${name}.txt
+      fi
+      echo "Output of dscore:"
+      head -n 1 exp/results/$output_name/dscore_${name}.txt
+      tail -n 1 exp/results/$output_name/dscore_${name}.txt
     fi
   done
 fi
