@@ -1,0 +1,2 @@
+S23-P54 sox /export/corpora4/CHiME5/audio/train/S23_P54.wav -t wavpcm - remix 2 |
+S24-P54 /export/corpora4/CHiME5/audio/train/S24_P54.wav

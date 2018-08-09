@@ -1,0 +1,2 @@
+S05-P14 sox /export/corpora4/CHiME5/audio/train/S05_P14.wav -t wavpcm - remix 2 |
+S06-P14 /export/corpora4/CHiME5/audio/train/S06_P14.wav
