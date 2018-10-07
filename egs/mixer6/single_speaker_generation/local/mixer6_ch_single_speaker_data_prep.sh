@@ -25,9 +25,11 @@ else
   echo "ERROR: invalid component: $comp"
   exit
 fi
+sed -i -e 's/^\([^ ]*\)_\([0-9]*\) /\2_\1_\2 /g' $datadir/wav.scp
 
-awk -v ch=$ch '{print "CH"ch"_"$1" CH"ch"_"$2" "$3" "$4}' data/${comp}_final/segments > $datadir/segments
-awk -v ch=$ch '{print "CH"ch"_"$1" "$2}' data/${comp}_final/segments > $datadir/utt2spk
+awk -F'[ _]' -v ch=$ch '{print $4"_CH"ch"_"$1"_"$2"_"$3"_"$4"_"$5"_"$6" "$4"_CH"ch"_"$7"_"$8"_"$9"_"$10" "$11" "$12}' \
+  data/${comp}_final/segments > $datadir/segments
+awk -v ch=$ch '{print $2"_CH"ch"_"$1" "$2}' data/${comp}_final/utt2spk > $datadir/utt2spk
 utils/utt2spk_to_spk2utt.pl $datadir/utt2spk > $datadir/spk2utt
 
 utils/fix_data_dir.sh $datadir

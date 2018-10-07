@@ -5,7 +5,7 @@
 #
 
 # Begin configuration section.
-stage=11
+stage=1
 save_stats=true
 # End configuration section
 . ./utils/parse_options.sh
@@ -242,15 +242,21 @@ if [ $stage -le 11 ]; then
     else
       sed -i -e 's/|/gain 15 |/g' data/intv_CH${ch}_final/wav.scp
     fi
+
+    mkdir -p samples/intv_CH$ch/data
+    rm -f samples/intv_CH$ch/data/{segments,wav.scp}
+    for spk in $(cut -d' ' -f1 data/intv_CH${ch}_final/spk2utt); do
+      grep -e "[CM]_$spk " data/intv_CH${ch}_final/segments | head -n 1 >>\
+        samples/intv_CH${ch}/data/segments
+      grep -e "[CM]_$spk " data/intv_CH${ch}_final/segments | tail -n 1 >>\
+        samples/intv_CH${ch}/data/segments
+      grep -e "[CM]_$spk " data/intv_CH${ch}_final/wav.scp | head -n 1 >>\
+        samples/intv_CH${ch}/data/wav.scp
+      grep -e "[CM]_$spk " data/intv_CH${ch}_final/wav.scp | tail -n 1 >>\
+        samples/intv_CH${ch}/data/wav.scp
+    done
+    sed -e 's/ \([0-9]*\)_.*$/ \1/g' samples/intv_CH${ch}/data/segments > samples/intv_CH${ch}/data/utt2spk
+    utils/fix_data_dir.sh samples/intv_CH${ch}/data
+    local/data_dir_to_wav.sh samples/intv_CH${ch}/data samples/intv_CH${ch}/wav
   done
 fi
-
-
-
-
-
-
-
-
-
-
