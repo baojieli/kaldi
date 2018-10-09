@@ -155,63 +155,64 @@ fi
 #
 if [ $stage -le 5 ]; then
 ### Prepare for speaker xvector extraction for segment verification
-  mkdir -p data/intv_CH02_spk_xvec
-  cp data/intv_CH02_cleaned/wav.scp data/intv_CH02_spk_xvec
-  awk '{print $1" "$1}' data/intv_CH02_spk_xvec/wav.scp \
-    | tee data/intv_CH02_spk_xvec/utt2spk > data/intv_CH02_spk_xvec/spk2utt
+  mkdir -p data/intv_CH10_spk_xvec
+  sed -e 's/CH02/CH10/g' data/intv_CH02_cleaned/wav.scp > data/intv_CH10_spk_xvec/wav.scp
+  awk '{print $1" "$1}' data/intv_CH10_spk_xvec/wav.scp \
+    | tee data/intv_CH10_spk_xvec/utt2spk > data/intv_CH10_spk_xvec/spk2utt
   steps/make_mfcc.sh --write-utt2num-frames true --mfcc-config 0007_voxceleb_v2_1a/conf/mfcc.conf \
     --nj 40 --cmd "$train_cmd" \
-    data/intv_CH02_spk_xvec exp/make_mfcc $mfccdir
-  utils/fix_data_dir.sh data/intv_CH02_spk_xvec
+    data/intv_CH10_spk_xvec exp/make_mfcc $mfccdir
+  utils/fix_data_dir.sh data/intv_CH10_spk_xvec
 
-  local/seg_to_vad.py data/intv_CH02_cleaned/segments data/intv_CH02_spk_xvec
-  mkdir -p $mfccdir/intv_CH02_spk_xvec_vad
-  copy-vector ark,t:data/intv_CH02_spk_xvec/vad.txt ark,scp:$mfccdir/intv_CH02_spk_xvec_vad/vad.ark,$mfccdir/intv_CH02_spk_xvec_vad/vad.scp
-  cp $mfccdir/intv_CH02_spk_xvec_vad/vad.scp data/intv_CH02_spk_xvec
-  rm data/intv_CH02_spk_xvec/vad.txt
+  local/seg_to_vad.py data/intv_CH02_cleaned/segments data/intv_CH10_spk_xvec
+  mkdir -p $mfccdir/intv_CH10_spk_xvec_vad
+  copy-vector ark,t:data/intv_CH10_spk_xvec/vad.txt ark,scp:$mfccdir/intv_CH10_spk_xvec_vad/vad.ark,$mfccdir/intv_CH10_spk_xvec_vad/vad.scp
+  cp $mfccdir/intv_CH10_spk_xvec_vad/vad.scp data/intv_CH10_spk_xvec
+  rm data/intv_CH10_spk_xvec/vad.txt
 fi
 
 if [ $stage -le 6 ]; then
 ### Extract speaker-level xvectors
   sid/nnet3/xvector/extract_xvectors.sh --cmd "$train_cmd --mem 4G" --nj 40 \
-    $xvec_nnet_dir data/intv_CH02_spk_xvec \
-    exp/xvectors_intv_CH02_spk_xvec
+    $xvec_nnet_dir data/intv_CH10_spk_xvec \
+    exp/xvectors_intv_CH10_spk_xvec
 fi
 
 if [ $stage -le 7 ]; then
 ### Prepare to extract segment-level xvectors
-  mkdir -p data/intv_CH02_seg_xvec
-  cp data/intv_CH02_cleaned/{wav.scp,segments} data/intv_CH02_seg_xvec
-  awk '{print $1" "$1}' data/intv_CH02_seg_xvec/segments \
-    | tee data/intv_CH02_seg_xvec/utt2spk > data/intv_CH02_seg_xvec/spk2utt
+  mkdir -p data/intv_CH10_seg_xvec
+  cp data/intv_CH02_cleaned/segments data/intv_CH10_seg_xvec
+  cp data/intv_CH10_spk_xvec/wav.scp data/intv_CH10_seg_xvec
+  awk '{print $1" "$1}' data/intv_CH10_seg_xvec/segments \
+    | tee data/intv_CH10_seg_xvec/utt2spk > data/intv_CH10_seg_xvec/spk2utt
   steps/make_mfcc.sh --write-utt2num-frames true --mfcc-config 0007_voxceleb_v2_1a/conf/mfcc.conf \
     --nj 40 --cmd "$train_cmd" \
-    data/intv_CH02_seg_xvec exp/make_mfcc $mfccdir
-  utils/fix_data_dir.sh data/intv_CH02_seg_xvec
+    data/intv_CH10_seg_xvec exp/make_mfcc $mfccdir
+  utils/fix_data_dir.sh data/intv_CH10_seg_xvec
   sid/compute_vad_decision.sh --nj 40 --cmd "$train_cmd" \
     --vad-config 0007_voxceleb_v2_1a/conf/vad.conf \
-    data/intv_CH02_seg_xvec exp/make_vad $mfccdir
-  utils/fix_data_dir.sh data/intv_CH02_seg_xvec
+    data/intv_CH10_seg_xvec exp/make_vad $mfccdir
+  utils/fix_data_dir.sh data/intv_CH10_seg_xvec
 fi
 
 if [ $stage -le 8 ]; then
 ### Extract segment-level xvectors
   sid/nnet3/xvector/extract_xvectors.sh --cmd "$train_cmd --mem 4G" --nj 40 \
-    $xvec_nnet_dir data/intv_CH02_seg_xvec \
-    exp/xvectors_intv_CH02_seg_xvec
+    $xvec_nnet_dir data/intv_CH10_seg_xvec \
+    exp/xvectors_intv_CH10_seg_xvec
 fi
 
 if [ $stage -le 9 ]; then
 ### Score segment-level xvectors against speaker-level xvectors
-  mkdir -p exp/scores_intv_CH02
-  awk -F'[ _]' '{print $1"_"$2"_"$3"_"$4" "$1"_"$2"_"$3"_"$4"_"$5"_"$6}' exp/xvectors_intv_CH02_seg_xvec/xvector.scp \
-    > exp/scores_intv_CH02/trials
-  $train_cmd exp/scores_intv_CH02/log/scoring.log \
-    ivector-plda-scoring --normalize-length=true --num-utts=ark:exp/xvectors_intv_CH02_spk_xvec/num_utts.ark \
+  mkdir -p exp/scores_intv_CH10
+  awk -F'[ _]' '{print $1"_"$2"_"$3"_"$4" "$1"_"$2"_"$3"_"$4"_"$5"_"$6}' exp/xvectors_intv_CH10_seg_xvec/xvector.scp \
+    > exp/scores_intv_CH10/trials
+  $train_cmd exp/scores_intv_CH10/log/scoring.log \
+    ivector-plda-scoring --normalize-length=true --num-utts=ark:exp/xvectors_intv_CH10_spk_xvec/num_utts.ark \
     "ivector-copy-plda --smoothing=0.0 $xvec_nnet_dir/xvectors_train/plda - |" \
-    "ark:ivector-subtract-global-mean $xvec_nnet_dir/xvectors_train/mean.vec scp:exp/xvectors_intv_CH02_spk_xvec/xvector.scp ark:- | transform-vec $xvec_nnet_dir/xvectors_train/transform.mat ark:- ark:- | ivector-normalize-length ark:- ark:- |" \
-    "ark:ivector-subtract-global-mean $xvec_nnet_dir/xvectors_train/mean.vec scp:exp/xvectors_intv_CH02_seg_xvec/xvector.scp ark:- | transform-vec $xvec_nnet_dir/xvectors_train/transform.mat ark:- ark:- | ivector-normalize-length ark:- ark:- |" \
-    exp/scores_intv_CH02/trials exp/scores_intv_CH02/scores.ark || exit 1;
+    "ark:ivector-subtract-global-mean $xvec_nnet_dir/xvectors_train/mean.vec scp:exp/xvectors_intv_CH10_spk_xvec/xvector.scp ark:- | transform-vec $xvec_nnet_dir/xvectors_train/transform.mat ark:- ark:- | ivector-normalize-length ark:- ark:- |" \
+    "ark:ivector-subtract-global-mean $xvec_nnet_dir/xvectors_train/mean.vec scp:exp/xvectors_intv_CH10_seg_xvec/xvector.scp ark:- | transform-vec $xvec_nnet_dir/xvectors_train/transform.mat ark:- ark:- | ivector-normalize-length ark:- ark:- |" \
+    exp/scores_intv_CH10/trials exp/scores_intv_CH10/scores.ark || exit 1;
 fi
 
 if [ $stage -le 10 ]; then
@@ -219,7 +220,7 @@ if [ $stage -le 10 ]; then
   mkdir -p data/intv_final
   rm -f data/intv_final/key.txt
   while read line; do
-    keep=$(grep -e "$line" exp/scores_intv_CH02/scores.ark | awk '{if($3 > 0) {print "true"}}')
+    keep=$(grep -e "$line" exp/scores_intv_CH10/scores.ark | awk '{if($3 > 4) {print "true"}}')
     if [ "$keep" == "true" ]; then
       echo "$line 1" >> data/intv_final/key.txt
     else

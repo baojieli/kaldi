@@ -5,7 +5,7 @@
 #
 
 # Begin configuration section.
-stage=2
+stage=1
 # End configuration section
 . ./utils/parse_options.sh
 
