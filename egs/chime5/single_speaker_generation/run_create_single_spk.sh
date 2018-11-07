@@ -41,19 +41,19 @@ fi
 
 if [ $stage -le 2 ]; then
 ### Prepare single-speaker regions by transcript
-  mkdir -p tmp
+  mkdir -p tmp_single
   for dset in dev train; do
     # Set up the info of where a speaker is speaking alone
     for sess in $(ls data/sessions/$dset/); do
       for spk in $(ls data/sessions/$dset/$sess/ | grep P); do
-        mkdir -p tmp/$dset/$sess/$spk
-        grep "${spk}_${spk}" data/sessions/$dset/$sess/$spk/segments | cut -d' ' -f3- > tmp/$dset/$sess/$spk/trn
+        mkdir -p tmp_single/$dset/$sess/$spk
+        grep "${spk}_${spk}" data/sessions/$dset/$sess/$spk/segments | cut -d' ' -f3- > tmp_single/$dset/$sess/$spk/trn
       done
-      local/trn_to_spk_num.py tmp/$dset/$sess/spk_nums tmp/$dset/$sess/*/trn
-      awk '{if ( $3 == 1 ) {print $0}}' tmp/$dset/$sess/spk_nums > tmp/$dset/$sess/single_spk
+      local/trn_to_spk_num.py tmp_single/$dset/$sess/spk_nums tmp_single/$dset/$sess/*/trn
+      awk '{if ( $3 == 1 ) {print $0}}' tmp_single/$dset/$sess/spk_nums > tmp_single/$dset/$sess/single_spk
       for spk in $(ls data/sessions/$dset/$sess/ | grep P); do
-        local/trn_to_spk_num.py tmp/$dset/$sess/$spk/single_spk_segments tmp/$dset/$sess/single_spk tmp/$dset/$sess/$spk/trn
-        sed -i '/ 1$/d' tmp/$dset/$sess/$spk/single_spk_segments
+        local/trn_to_spk_num.py tmp_single/$dset/$sess/$spk/single_spk_segments tmp_single/$dset/$sess/single_spk tmp_single/$dset/$sess/$spk/trn
+        sed -i '/ 1$/d' tmp_single/$dset/$sess/$spk/single_spk_segments
       done
     done
 
@@ -62,7 +62,7 @@ if [ $stage -le 2 ]; then
     rm -f data/${dset}_single_spk/{segments,wav.scp,utt2spk}
     for sess in $(ls data/sessions/$dset/); do
       for spk in $(ls data/sessions/$dset/$sess/ | grep P); do
-        awk -v sess=$sess -v spk=$spk '{if ($2-$1 >= 1.3) {printf("%s-%s_%s_%07d_%07d %s-%s %0.2f %0.2f\n",sess,spk,spk,$1*100,$2*100,sess,spk,$1,$2)}}' tmp/$dset/$sess/$spk/single_spk_segments >> data/${dset}_single_spk/segments
+        awk -v sess=$sess -v spk=$spk '{if ($2-$1 >= 1.3) {printf("%s-%s_%s_%07d_%07d %s-%s %0.2f %0.2f\n",sess,spk,spk,$1*100,$2*100,sess,spk,$1,$2)}}' tmp_single/$dset/$sess/$spk/single_spk_segments >> data/${dset}_single_spk/segments
       done
     done
     awk '{print $2}' data/${dset}_single_spk/segments | sort -u | awk -v path="$audio_dir/$dset/" -F'-' '{print $1"-"$2" "path $1"_"$2".wav"}' > data/${dset}_single_spk/wav.scp
@@ -122,26 +122,26 @@ fi
 
 if [ $stage -le 4 ]; then
 ### Merge SAD segmentation with single-speaker regions for all mics
-  mkdir -p tmp/sad
+  mkdir -p tmp_single/sad
   for dset in dev train; do
     rm -rf data/${dset}_cleaned
     mkdir -p data/${dset}_cleaned
     # Set up the info of where a speaker is speaking alone
     for sess in $(ls data/sessions/$dset/); do
       for spk in $(ls data/sessions/$dset/$sess/ | grep P); do
-        tmp_dir=tmp/sad/$dset/$sess/$spk
+        tmp_dir=tmp_single/sad/$dset/$sess/$spk
         mkdir -p $tmp_dir
         grep -e "${sess}-${spk}" data/${dset}_single_spk/segments | cut -d' ' -f3- > $tmp_dir/single_spk.txt
         grep -e "${sess}-${spk}" data/${dset}_sad_seg/segments | cut -d' ' -f3- > $tmp_dir/sad.txt
         local/trn_to_spk_num.py $tmp_dir/sad_single_spk.txt $tmp_dir/sad.txt $tmp_dir/single_spk.txt
         sed -i '/ 1$/d' $tmp_dir/sad_single_spk.txt
       done
-      cat tmp/sad/$dset/$sess/*/sad_single_spk.txt | sort -n > tmp/sad/$dset/$sess/sad_single_spk.txt
-      local/time_marks_and_map_to_segments.py tmp/sad/$dset/$sess/sad_single_spk.txt \
-        data/sessions/$dset/$sess/segment_drift_map.txt tmp/sad/$dset/$sess/segments
-      for reco in $(ls tmp/sad/$dset/$sess/segments); do
+      cat tmp_single/sad/$dset/$sess/*/sad_single_spk.txt | sort -n > tmp_single/sad/$dset/$sess/sad_single_spk.txt
+      local/time_marks_and_map_to_segments.py tmp_single/sad/$dset/$sess/sad_single_spk.txt \
+        data/sessions/$dset/$sess/segment_drift_map.txt tmp_single/sad/$dset/$sess/segments
+      for reco in $(ls tmp_single/sad/$dset/$sess/segments); do
         mkdir -p data/${dset}_cleaned/$reco
-        cat tmp/sad/$dset/$sess/segments/$reco >> data/${dset}_cleaned/$reco/segments
+        cat tmp_single/sad/$dset/$sess/segments/$reco >> data/${dset}_cleaned/$reco/segments
       done
     done
 
@@ -276,6 +276,16 @@ if [ $stage -le 10 ]; then
 ### Use xvector scores to find "good" segments and create final data directories
   for dset in dev train; do
     mkdir -p data/${dset}_final
+
+    # Create table of utterance equivalences (NOTE: not all of these exist)
+    rm -f data/${dset}_final/utt_equivalences.txt
+    for sess in $(ls data/sessions/$dset/); do
+      for file in tmp_single/sad/$dset/$sess/segments/*; do
+        cut -d' ' -f1 $file > ${file}_IDs
+      done
+      paste -d' ' tmp_single/sad/$dset/$sess/segments/*_IDs >> data/${dset}_final/utt_equivalences.txt
+    done
+
     rm -f data/${dset}_final/key.txt
     while read line; do
       keep=$(grep -e "$line" exp/scores_${dset}/scores.ark | awk '{if($3 > -10) {print "true"}}')
@@ -315,16 +325,16 @@ if [ $stage -le 11 ]; then
 ### Extract some sample wav files from the close-talking and a farfield mic
   for dset in dev train; do
     for mic in close_talking U01; do
-      mkdir -p samples/${dset}_${mic}/data
-      rm -f samples/${dset}_${mic}/data/{segments,wav.scp}
+      mkdir -p samples/$mic/$dset/data
+      rm -f samples/$mic/$dset/data/{segments,wav.scp}
       for spk in $(ls data/${dset}_final | grep P); do
         grep -e "_${spk}_" data/${dset}_final/$mic/segments | head -n 5 >>\
-          samples/${dset}_${mic}/data/segments
+          samples/$mic/$dset/data/segments
         grep -e "_${spk}_" data/${dset}_final/$mic/segments | tail -n 5 >>\
-          samples/${dset}_${mic}/data/segments
+          samples/$mic/$dset/data/segments
       done
-      cp data/${dset}_final/$mic/wav.scp samples/${dset}_${mic}/data
-      local/data_dir_to_wav.sh samples/${dset}_${mic}/data samples/${dset}_${mic}/wav
+      cp data/${dset}_final/$mic/wav.scp samples/$mic/$dset/data
+      local/data_dir_to_wav.sh samples/$mic/$dset/data samples/$mic/$dset/wav
     done
   done
 fi
