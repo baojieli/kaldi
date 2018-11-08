@@ -44,6 +44,23 @@ if [ $stage -le 1 ]; then
 fi
 
 if [ $stage -le 2 ]; then
+### Prepare data directory for train set with number of speakers balanced to WSJ0 set
+  for ch in 02 09; do
+    mkdir -p data/intv_CH${ch}_tr_wsj-spk-bal
+    utils/filter_scp.pl -f 2 data/local/IDs_train_wsj_spk_num_balanced.txt data/intv_CH${ch}_final/utt2spk \
+      > data/intv_CH${ch}_tr_wsj-spk-bal/utt2spk
+
+    utils/utt2spk_to_spk2utt.pl data/intv_CH${ch}_tr_wsj-spk-bal/utt2spk > data/intv_CH${ch}_tr_wsj-spk-bal/spk2utt
+    utils/filter_scp.pl data/intv_CH${ch}_tr_wsj-spk-bal/utt2spk data/intv_CH${ch}_final/segments |\
+      tee data/intv_CH${ch}_tr_wsj-spk-bal/segments | awk '{print $2}' | uniq > reco_list.tmp
+    utils/filter_scp.pl reco_list.tmp data/intv_CH${ch}_final/wav.scp > data/intv_CH${ch}_tr_wsj-spk-bal/wav.scp
+    rm -f reco_list.tmp
+
+    utils/validate_data_dir.sh --no-feats --no-text data/intv_CH${ch}_tr_wsj-spk-bal
+  done
+fi
+
+if [ $stage -le 3 ]; then
 ### Prepare mix lists
   mkdir -p mixes
   for ch in 02 09; do
