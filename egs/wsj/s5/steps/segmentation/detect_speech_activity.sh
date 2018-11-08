@@ -170,7 +170,10 @@ fi
 ## Prepare FST we search to make speech/silence decisions.
 ###############################################################################
 
-utils/data/get_utt2dur.sh --nj $nj --cmd "$cmd" $test_data_dir || exit 1
+# get_utt2dur.sh breaks on our setup but the wav.scp contains duration information
+#
+#utils/data/get_utt2dur.sh --nj $nj --cmd "$cmd" $test_data_dir || exit 1
+awk -F'[ =]' '{print $1" "$14-$12}' $test_data_dir/wav.scp > $test_data_dir/utt2dur
 frame_shift=$(utils/data/get_frame_shift.sh $test_data_dir) || exit 1
 
 graph_dir=${dir}/graph_${output_name}

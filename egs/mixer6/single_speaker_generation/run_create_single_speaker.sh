@@ -81,13 +81,11 @@ fi
 if [ $stage -le 3 ]; then
 ### Run segmentation
   sad_opts="--extra-left-context 79 --extra-right-context 21 --frames-per-chunk 150 --extra-left-context-initial 0 --extra-right-context-final 0 --acwt 0.3"
-  sad_stage=5
+  sad_stage=0
   sad_mfcc_suffix="_hires"
   sad_dir=sad/tdnn_stats_asr_sad_1a
   sad_suffix=_1a
 
-  mkdir -p data/intv_CH02_sad_whole_hires
-  awk -F'[ =]' '{print $1" "$14-$12}' data/intv_CH02/wav.scp > data/intv_CH02_sad_whole_hires/utt2dur
   out_data_dir=data/intv_CH02_sad
   steps/segmentation/detect_speech_activity.sh $sad_opts \
     --nj 40 --acwt 0.3 --stage $sad_stage \
