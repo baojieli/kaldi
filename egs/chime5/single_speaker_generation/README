@@ -1,0 +1,159 @@
+This GitHub branch contains the cleaned single-speaker segmentation and
+resulting overlap mixture lists, along with the scripts used to generate them,
+for the CHiME-5 corpus.
+
+The single-speaker output is in Kaldi-style data directories:
+  data/{dev,train}_final/<microphone>
+
+The mixture outputs are in the "mixes" directory.
+
+The two scripts are:
+  run_create_single_spk.sh - creates single-speaker cleaned segments
+  run_create_mix_lists.sh - creates the mixture lists from the cleaned segments
+
+There are also two scripts provided that are of use:
+  local/data_dir_to_wav.sh - creates utterance .wav files from Kaldi data dir
+  local/filelist_to_mixlist.py - constructs overlap mix lists from filelists
+
+Detailed info on the output and scripts is below.
+
+
+
+******************************************
+*** Single-Speaker Segmentation Output ***
+
+The single-speaker segmentation is distributed in the form of Kaldi-style data
+directories (more info here: http://kaldi-asr.org/doc/data_prep.html). They are
+broken down by dev/train subset and then microphone condition (with the
+close-talking condition consisting of the corresponding speaker's binaural mic
+for each utterance). They consist of 4 files:
+  wav.scp
+  segments
+  utt2spk
+  spk2utt
+
+The wav.scp file is a mapping from recording-ID to the audio file, i.e.
+<reco-ID> <audio-file>
+
+The segments file defines utterances, the recording they are from, and the
+start and end time for the utterance, i.e.
+<utt-ID> <reco-ID> <start> <end>
+By convention, the utterance ID is of the form:
+<reco-ID>_<speaker-ID>_<start-frame>_<end-frame>
+Since the utterance ID contains the recording ID as well as the start and end
+frame, it encodes the entire information required for recovering the utterance
+from the recording audio file.
+
+The utt2spk file is a mapping from utterance-ID to speaker-ID, i.e.
+<utt-ID> <spk-ID>
+
+The spk2utt file is a mapping from speaker-ID to utterance-IDs, i.e.
+<spk-ID> <utt-ID-1> <utt-ID-2> [...]
+
+
+In addition, there are a number of supplemental files that are useful and have
+been provided, that are within the data/{dev,train}_final directories:
+  key.txt
+  utt_equivalences.txt
+
+The key.txt file is a table of all of the close-talking segments along with a
+value of 0 or 1, depending on if they passed the xvector speaker-ID
+verification stage. This way it is possible to recover more segments of
+generally lower quality if desired.
+
+The utt_equivalences.txt file contains all of the utterances across every
+microphone, with each line consisting of all the different microphones that
+recorded a spoken utterance. Given that the microphones were not synchronous,
+it is not trivial to map speech across microphones, and this table contains
+that information.
+
+
+
+****************************
+*** Mixture List Outputs ***
+
+The mixture lists have been constructed to parallel the lists released by MERL
+for the WSJ0 dataset, along with being compatible with the code they released
+for creating the overlapping audio
+(http://www.merl.com/demos/deep-clustering/create-speaker-mixtures.zip).
+
+The files are of the format:
+<audio1> <SNR1> <audio2> <SNR2>
+The audio identifier is of the form:
+<data-subset>/<microphone>/<utterance-ID>.wav
+The utterance-ID form is explained above, and contains all of the information
+necessary to construct the utterance from the recording audio file.
+
+
+
+***************************************************
+*** Single-Speaker Segmentation Generation Code ***
+
+The top-level script for the code used to generate single-speaker segmentation
+is:
+run_create_single_spk.sh
+
+It is not possible to run this script end-to-end, as the Speech Activity
+Detection model I used has not been publicly released. The xvector system has
+been, and must be downloaded prior to running. If you would like to run the
+full cleanup, you must either run your own SAD system or rely on only the
+annotations for finding single-speaker segments. Either way, you must replace
+stage 3 with appropriate code. It should produce data/{dev,train}_sad data
+directories, where the "segments" file must contain the output of the SAD, or
+if SAD is ommitted, segments that consist of the full recording.
+
+The breakdown of the stages of the script is as follows:
+Stage 1: Basic data prep of the raw corpus to Kaldi data directories
+Stage 2: Cross-referencing transcripts to generate basic single-speaker regions
+Stage 3: Running an ASR Speech Activity Detection system
+Stage 4: Merging stages 2-3 to create high-confidence single-speaker regions
+Stage 5: Preparation for speaker xvector extraction
+Stage 6: Extracting xvectors for each speaker
+Stage 7: Preparation for segment xvector extraction
+Stage 8: Extracting xvectors for each segment
+Stage 9: Scoring segment xvectors against their corresponding speaker
+Stage 10: Use high-scoring segemnts to create final segmentation
+Stage 11: Produce sample single-speaker .wav files
+
+
+
+************************************
+*** Mixture List Generation Code ***
+
+The top-level script for the code used to generate mixture lists is:
+run_create_mix_lists.sh
+
+This script takes the output of the single-speaker segmentation and creates
+mixture lists, particularly the ones used in my experiments. Due to generating
+random SNRs, it will *not* produce exact identical output and the lists in this
+repository should be used if you would like to evaluate on the datasets I
+evaluated on. This code is supplied as a demonstration of usage, enabling usage
+for constructing additional datasets from the single-speaker segmentation, of
+which there is great potential beyond my usage.
+
+Stage 1 demonstrates the construction of filelists from a Kaldi data directory
+and then using the local/filelist_to_mixlist.py script to generate mixtures
+from that filelist.
+
+Stage 2 demonstrates the usage of the utt_equivalences.txt file to map a
+mixture list across microphones, to create cross-micrphone versions of the
+exact same utterance mixtures.
+
+
+
+**************************
+*** Additional Scripts ***
+
+The local/data_dir_to_wav.sh script can produce .wav files of segments from a
+Kaldi-style data directory. This can be useful for preparing single-speaker
+.wav files for use with the MERL overlap-generation scripts. An example of how
+to use this script is in Stage 11 of the run_create_single_spk.sh script.
+When using this script in preparation for overlap-generation, it is important
+to ensure all of the utterances used in your overlap dataset *are* actually
+contained within the data directory you are using to generate its input.
+
+The local/filelist_to_mixlist.py script can produce a mixture list of a target
+number of trials given a filelist. Demonstration of this script is in Stage 1
+of the run_create_mix_lists.sh file. It is important that the structure of the
+file names in the filelist matches the above description, as the script reads
+information on the speaker and utterance length from the filename.
