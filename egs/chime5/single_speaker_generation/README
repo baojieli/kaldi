@@ -98,7 +98,7 @@ Detection model I used has not been publicly released. The xvector system has
 been, and must be downloaded prior to running. If you would like to run the
 full cleanup, you must either run your own SAD system or rely on only the
 annotations for finding single-speaker segments. Either way, you must replace
-stage 3 with appropriate code. It should produce data/{dev,train}_sad data
+stage 3 with appropriate code. It should produce data/{dev,train}_sad_seg data
 directories, where the "segments" file must contain the output of the SAD, or
 if SAD is ommitted, segments that consist of the full recording.
 
