@@ -23,7 +23,7 @@ corpus_dir=/export/corpora5/LDC/LDC2013S03
 xvec_nnet_dir=0007_voxceleb_v2_1a/exp/xvector_nnet_1a
 
 if [ $stage -le 1 ]; then
-### Prepare data and segment based on energy ratio of interviewee and interviewer mics
+### Prepare data
   for ch in 01 02; do
     local/mixer6_ch_data_prep.sh $corpus_dir $ch intv data/intv_CH$ch
     sed -i -e 's/|/gain 15 |/g' data/intv_CH$ch/wav.scp
@@ -32,7 +32,10 @@ if [ $stage -le 1 ]; then
       data/intv_CH$ch exp/make_mfcc $mfccdir
     utils/fix_data_dir.sh data/intv_CH$ch
   done
+fi
 
+if [ $stage -le 2 ]; then
+### Segment based on energy ratio of interviewee and interviewer mics
   local/compute_energy_diarization.sh --nj 20 --cmd "$train_cmd" \
     data/intv_CH02 data/intv_CH01 exp/make_vad $vaddir
   utils/fix_data_dir.sh data/intv_CH02

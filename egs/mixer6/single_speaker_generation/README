@@ -1,0 +1,170 @@
+This GitHub branch contains the cleaned single-speaker segmentation and
+resulting overlap mixture lists, along with the scripts used to generate them,
+for the Mixer 6 corpus.
+
+The single-speaker output is in a Kaldi-style data directory:
+  data/intv_final/
+It does not contain a wav.scp file due to multiple microphones existing. A data
+directory for a particular microphone can be generated using the
+local/mixer6_ch_single_speaker_data_prep.sh script.
+
+The mixture outputs are in the "mixes" directory.
+
+The two scripts are:
+  run_create_single_spk.sh - creates single-speaker cleaned segments
+  run_create_mix_lists.sh - creates the mixture lists from the cleaned segments
+
+There are also three scripts provided that are of use:
+  local/data_dir_to_wav.sh - creates utterance .wav files from Kaldi data dir
+  local/filelist_to_mixlist.py - constructs overlap mix lists from filelists
+  local/mixer6_ch_single_speaker_data_prep.sh - constructs a final single-
+    speaker data directory for a given microphone
+
+Detailed info on the output and scripts is below.
+
+
+
+******************************************
+*** Single-Speaker Segmentation Output ***
+
+The single-speaker segmentation is distributed in the form of a Kaldi-style
+data directory (more info here: http://kaldi-asr.org/doc/data_prep.html). It
+does not contain a wav.scp file, as there are multiple synchronous microphones
+used that can share the other data directory components. To generate a data
+directory for a particular microphone, the
+local/mixer6_ch_single_speaker_data_prep.sh script can be used. The 4 files
+that will be contained in a final data directory are:
+  wav.scp
+  segments
+  utt2spk
+  spk2utt
+
+The wav.scp file is a mapping from recording-ID to the audio file, i.e.
+<reco-ID> <audio-file>
+Kaldi supports piped audio, so we use sox to trim out the intv portion of the
+sessions using a version of the iv_components.csv file with minor fixes,
+data/local/iv_components_final.csv
+
+The segments file defines utterances, the recording they are from, and the
+start and end time for the utterance, i.e.
+<utt-ID> <reco-ID> <start> <end>
+By convention, the utterance ID is of the form:
+<reco-ID>_<speaker-ID>_<start-frame>_<end-frame>
+Since the utterance ID contains the recording ID as well as the start and end
+frame, it encodes the entire information required for recovering the utterance
+from the recording audio file. Note that these frame markers are indexed from
+the start of the intv portion of the sessions. This information is contained in
+the data/local/iv_components_final.csv file, which is a version of the corpus-
+release iv_components.csv file with minor fixes included.
+
+The utt2spk file is a mapping from utterance-ID to speaker-ID, i.e.
+<utt-ID> <spk-ID>
+
+The spk2utt file is a mapping from speaker-ID to utterance-IDs, i.e.
+<spk-ID> <utt-ID-1> <utt-ID-2> [...]
+
+
+In addition, the data/intv_final/key.txt file has been included that can be of
+use. It is a table of all of the single-speaker segments along with a value of
+0 or 1, depending on if they passed the xvector speaker-ID verification stage.
+This way it is possible to recover more segments of generally lower quality if
+desired.
+
+
+
+****************************
+*** Mixture List Outputs ***
+
+The mixture lists have been constructed to parallel the lists released by MERL
+for the WSJ0 dataset, along with being compatible with the code they released
+for creating the overlapping audio
+(http://www.merl.com/demos/deep-clustering/create-speaker-mixtures.zip).
+
+The files are of the format:
+<audio1> <SNR1> <audio2> <SNR2>
+The audio identifier is of the form:
+<data-subset>/<microphone>/<utterance-ID>.wav
+The utterance-ID form is explained above and, along with the
+data/local/iv_components_final.csv file, contains all of the information
+necessary to construct the utterance from the recording audio file.
+
+
+
+***************************************************
+*** Single-Speaker Segmentation Generation Code ***
+
+The top-level script for the code used to generate single-speaker segmentation
+is:
+run_create_single_spk.sh
+
+It is not possible to run this script end-to-end, as the Speech Activity
+Detection model I used has not been publicly released. The xvector system has
+been, and must be downloaded prior to running. If you would like to run the
+full cleanup, you must either run your own SAD system or rely on only the
+energy-ratio voice activity detection for finding single-speaker segments
+(which is not recommended). Either way, you must replace stage 3 with
+appropriate code. It should produce a data/intv_CH02_sad_seg data directory,
+where the "segments" file must contain the output of the SAD, or if SAD is
+omitted, segments that consist of the full recording.
+
+The breakdown of the stages of the script is as follows:
+Stage 1: Basic data prep of the raw corpus to Kaldi data directories
+Stage 2: Energy-ratio analysis to generate basic single-speaker regions
+Stage 3: Running an ASR Speech Activity Detection system
+Stage 4: Merging stages 2-3 to create high-confidence single-speaker regions
+Stage 5: Preparation for speaker xvector extraction
+Stage 6: Extracting xvectors for each speaker
+Stage 7: Preparation for segment xvector extraction
+Stage 8: Extracting xvectors for each segment
+Stage 9: Scoring segment xvectors against their corresponding speaker
+Stage 10: Use high-scoring segemnts to create final segmentation
+Stage 11: Produce sample single-speaker .wav files
+
+
+
+************************************
+*** Mixture List Generation Code ***
+
+The top-level script for the code used to generate mixture lists is:
+run_create_mix_lists.sh
+
+This script takes the output of the single-speaker segmentation and creates
+mixture lists, particularly the ones used in my experiments. Due to generating
+random SNRs, it will *not* produce exact identical output and the lists in this
+repository should be used if you would like to evaluate on the datasets I
+evaluated on. This code is supplied as a demonstration of usage, enabling usage
+for constructing additional datasets from the single-speaker segmentation, of
+which there is great potential beyond my usage.
+
+Stage 1 generates data directories for the train, cross-validation, and test
+sets according to ID lists selected for these splits according to an analysis
+of quality.
+
+Stage 2 generates a data directory for the train set where the number of
+speakers has been balanced to match the WSJ0 dataset
+
+Stage 3 uses the local/filelist_to_mixlist.py script to generate the various
+mixture lists from the corresponding filelist.
+
+
+
+**************************
+*** Additional Scripts ***
+
+The local/data_dir_to_wav.sh script can produce .wav files of segments from a
+Kaldi-style data directory. This can be useful for preparing single-speaker
+.wav files for use with the MERL overlap-generation scripts. An example of how
+to use this script is in Stage 11 of the run_create_single_spk.sh script.
+When using this script in preparation for overlap-generation, it is important
+to ensure all of the utterances used in your overlap dataset *are* actually
+contained within the data directory you are using to generate its input.
+
+The local/filelist_to_mixlist.py script can produce a mixture list of a target
+number of trials given a filelist. Demonstration of this script is in Stage 1
+of the run_create_mix_lists.sh file. It is important that the structure of the
+file names in the filelist matches the above description, as the script reads
+information on the speaker and utterance length from the filename.
+
+The local/mixer6_ch_single_speaker_data_prep.sh script produces a Kaldi-style
+data directory of single-speaker segments for a given microphone based on the
+pipeline's final segmentation distributed in the data/intv_final directory.
