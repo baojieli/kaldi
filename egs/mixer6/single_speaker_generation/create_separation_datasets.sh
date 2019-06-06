@@ -45,6 +45,7 @@ wget "http://www.merl.com/demos/deep-clustering/create-speaker-mixtures.zip"
 unzip create-speaker-mixtures.zip -d MERL_scripts
 
 sed -i -e 's/wsj0root/mx6root/g' MERL_scripts/create_wav_2speakers.m
+sed -i -e '48s/mix_2_spk/mixes\/mix_2_spk/g' MERL_scripts/create_wav_2speakers.m
 line21="data_type = {'CH02_tr','CH02_cv','CH02_tt','CH02_tr_100k','CH09_tr','CH09_cv','CH09_tt','CH09_tr_100k'};"
 line22="mx6root = '$out_dir/single_spk/';"
 line23="output_dir16k='$out_dir/mx6-mix/2speakers/wav16k';"
