@@ -50,7 +50,7 @@ line22="mx6root = '$out_dir/single_spk/';"
 line23="output_dir16k='$out_dir/mx6-mix/2speakers/wav16k';"
 line24="output_dir8k='$out_dir/mx6-mix/2speakers/wav8k';"
 line26="min_max = {'min'};"
-awk -v line21="$line21" -v line22="$line22" -v line23="$line23" -v line24="$line24" \
+awk -v line21="$line21" -v line22="$line22" -v line23="$line23" -v line24="$line24" -v line26="$line26" \
   '{if (NR == 21) {print line21}
     else if (NR == 22) {print line22}
     else if (NR == 23) {print line23}
