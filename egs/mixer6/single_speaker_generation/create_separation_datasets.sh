@@ -21,7 +21,7 @@ command -v sox >/dev/null 2>&1 || { echo >&2 "Sox is required but is not install
 command -v matlab >/dev/null 2>&1 || { echo >&2 "MATLAB is required but is not installed. Exiting"; exit 1; }
 command -v unzip >/dev/null 2>&1 || { echo >&2 "Unzip is required but is not installed. This is only used for extracting MERL scripts. Exiting"; exit 1; }
 
-if [ stage -le 1 ]; then
+if [ $stage -le 1 ]; then
 # Produce single-speaker wav files
   echo "*** Producing single-speaker wav files ***"
   for ch in 02 09; do
@@ -50,7 +50,7 @@ if [ stage -le 1 ]; then
   echo ""
 fi
 
-if [ stage -le 2 ]; then
+if [ $stage -le 2 ]; then
 # Prepare modified MERL scripts
   echo "*** Preparing modified MERL scripts ***"
   wget "http://www.merl.com/demos/deep-clustering/create-speaker-mixtures.zip"
@@ -76,7 +76,7 @@ if [ stage -le 2 ]; then
   echo ""
 fi
 
-if [ stage -le 3 ]; then
+if [ $stage -le 3 ]; then
 # Produce mixtures
   echo "*** Producing mixtures ***"
   matlab -nodisplay -nodesktop -nosplash -nojvm -r "addpath('MERL_scripts'); create_wav_2speakers; exit"
