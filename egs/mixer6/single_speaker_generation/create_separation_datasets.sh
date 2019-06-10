@@ -23,7 +23,7 @@ command -v unzip >/dev/null 2>&1 || { echo >&2 "Unzip is required but is not ins
 
 if [ stage -le 1 ]; do
 # Produce single-speaker wav files
-  echo: "*** Producing single-speaker wav files ***"
+  echo "*** Producing single-speaker wav files ***"
   for ch in 02 09; do
     local/mixer6_ch_single_speaker_data_prep.sh $corpus_dir $ch intv data/intv_CH${ch}_final
 
