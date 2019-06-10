@@ -1,3 +1,8 @@
+*****
+** IF YOU ONLY WANT TO GENERATE THE OVERLAP DATA, USE THE
+** create_separation_datasets.sh SHELL SCRIPT
+*****
+
 This GitHub branch contains the cleaned single-speaker segmentation and
 resulting overlap mixture lists, along with the scripts used to generate them,
 for the CHiME-5 corpus.
