@@ -21,7 +21,7 @@ command -v sox >/dev/null 2>&1 || { echo >&2 "Sox is required but is not install
 command -v matlab >/dev/null 2>&1 || { echo >&2 "MATLAB is required but is not installed. Exiting"; exit 1; }
 command -v unzip >/dev/null 2>&1 || { echo >&2 "Unzip is required but is not installed. This is only used for extracting MERL scripts. Exiting"; exit 1; }
 
-if [ stage -le 1 ]; do
+if [ stage -le 1 ]; then
 # Produce single-speaker wav files
   echo "*** Producing single-speaker wav files ***"
   for ch in 02 09; do
@@ -48,7 +48,7 @@ if [ stage -le 1 ]; do
   done
   echo "done"
   echo ""
-done
+fi
 
 if [ stage -le 2 ]; then
 # Prepare modified MERL scripts
